@@ -1,3 +1,20 @@
+// Package uoneauth wraps part of the Ubuntu One authentication library.
+//
+// The ubuntuoneauth library is somewhat fragile at the moment, and meant
+// to be used in Ubuntu Touch phones to securly authenticate on Ubuntu One
+// as the phone owner. If that's not what you're doing, this Go package is
+// probably not interesting for you.
+//
+// To use this package, create a new Service and obtain an authentication
+// token from it. For example:
+//
+//     service := uoneauth.NewService(engine)
+//     token, err := service.Token()
+//     if err != nil {
+//             return err
+//     }
+//     signature := token.HeaderSignature(method, url)
+//
 package uoneauth
 
 // #cgo CXXFLAGS: -std=c++0x -Wall -fno-strict-aliasing
@@ -30,7 +47,7 @@ type Service struct {
 // NewService returns a new Service.
 func NewService(engine *qml.Engine) *Service {
 	s := &Service{}
-	s.reply = make(chan reply, 5)
+	s.reply = make(chan reply, 1)
 
 	qml.RunMain(func() {
 		s.obj = *qml.CommonOf(C.newSSOService(), engine)
@@ -132,19 +149,35 @@ type reply struct {
 }
 
 func (s *Service) credentialsFound(token *Token) {
-	s.reply <- reply{token: token}
+	select {
+	case s.reply <- reply{token: token}:
+	default:
+		panic("internal error: multiple results received")
+	}
 }
 
 func (s *Service) credentialsNotFound() {
-	s.reply <- reply{err: ErrNoCreds}
+	select {
+	case s.reply <- reply{err: ErrNoCreds}:
+	default:
+		panic("internal error: multiple results received")
+	}
 }
 
 func (s *Service) twoFactorAuthRequired() {
-	s.reply <- reply{err: ErrTwoFactor}
+	select {
+	case s.reply <- reply{err: ErrTwoFactor}:
+	default:
+		panic("internal error: multiple results received")
+	}
 }
 
 func (s *Service) requestFailed(err *RequestError) {
-	s.reply <- reply{err: err}
+	select {
+	case s.reply <- reply{err: err}:
+	default:
+		panic("internal error: multiple results received")
+	}
 }
 
 func convertToken(engine *qml.Engine, obj qml.Object) interface{} {

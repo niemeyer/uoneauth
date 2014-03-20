@@ -2,12 +2,11 @@ package uoneauth_test
 
 import (
 	"testing"
-	"os"
 
 	. "launchpad.net/gocheck"
 
 	"gopkg.in/v0/qml"
-	"gopkg.in/v0/qml/uoneauth"
+	"gopkg.in/niemeyer/v1/uoneauth"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -17,10 +16,6 @@ var _ = Suite(&S{})
 type S struct{}
 
 func (s *S) SetUpSuite(c *C) {
-	if os.Getenv("TEST_UONEAUTH") != "1" {
-		c.Skip("TEST_UONEAUTH != 1")
-	}
-
 	qml.Init(nil)
 }
 
