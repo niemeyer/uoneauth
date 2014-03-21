@@ -46,8 +46,7 @@ type Service struct {
 
 // NewService returns a new Service.
 func NewService(engine *qml.Engine) *Service {
-	s := &Service{}
-	s.reply = make(chan reply, 1)
+	s := &Service{reply: make(chan reply, 1)}
 
 	qml.RunMain(func() {
 		s.obj = *qml.CommonOf(C.newSSOService(), engine)
@@ -95,27 +94,25 @@ type Token struct {
 // HeaderSignature returns the HTTP header value that authenticates access
 // via the provided HTTP method to the specified URL.
 func (t *Token) HeaderSignature(method, url string) string {
-	cmethod := C.CString(method)
-	curl := C.CString(url)
+	cmethod, curl := C.CString(method), C.CString(url)
 	cheader := C.tokenSignURL(t.addr, cmethod, curl, 0)
-	header := C.GoString(cheader)
-	C.free(unsafe.Pointer(cmethod))
-	C.free(unsafe.Pointer(curl))
-	C.free(unsafe.Pointer(cheader))
-	return header
+	defer freeCStrings(cmethod, curl, cheader)
+	return C.GoString(cheader)
 }
 
 // QuerySignature returns the URL query value that authenticates access
 // via the provided HTTP method to the specified URL.
 func (t *Token) QuerySignature(method, url string) string {
-	cmethod := C.CString(method)
-	curl := C.CString(url)
+	cmethod, curl := C.CString(method), C.CString(url)
 	cquery := C.tokenSignURL(t.addr, cmethod, curl, 1)
-	query := C.GoString(cquery)
-	C.free(unsafe.Pointer(cmethod))
-	C.free(unsafe.Pointer(curl))
-	C.free(unsafe.Pointer(cquery))
-	return query
+	defer freeCStrings(cmethod, curl, cquery)
+	return C.GoString(cquery)
+}
+
+func freeCStrings(a, b, c *C.char) {
+	C.free(unsafe.Pointer(a))
+	C.free(unsafe.Pointer(b))
+	C.free(unsafe.Pointer(c))
 }
 
 // Close destroys the token and releases any used resources.
@@ -149,32 +146,24 @@ type reply struct {
 }
 
 func (s *Service) credentialsFound(token *Token) {
-	select {
-	case s.reply <- reply{token: token}:
-	default:
-		panic("internal error: multiple results received")
-	}
+	s.sendReply(reply{token: token})
 }
 
 func (s *Service) credentialsNotFound() {
-	select {
-	case s.reply <- reply{err: ErrNoCreds}:
-	default:
-		panic("internal error: multiple results received")
-	}
+	s.sendReply(reply{err: ErrNoCreds})
 }
 
 func (s *Service) twoFactorAuthRequired() {
-	select {
-	case s.reply <- reply{err: ErrTwoFactor}:
-	default:
-		panic("internal error: multiple results received")
-	}
+	s.sendReply(reply{err: ErrTwoFactor})
 }
 
 func (s *Service) requestFailed(err *RequestError) {
+	s.sendReply(reply{err: err})
+}
+
+func (s *Service) sendReply(r reply) {
 	select {
-	case s.reply <- reply{err: err}:
+	case s.reply <- r:
 	default:
 		panic("internal error: multiple results received")
 	}
