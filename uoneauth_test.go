@@ -5,8 +5,8 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"gopkg.in/v0/qml"
-	"gopkg.in/niemeyer/v1/uoneauth"
+	"gopkg.in/qml.v0"
+	"gopkg.in/niemeyer/uoneauth.v1"
 )
 
 func Test(t *testing.T) { TestingT(t) }

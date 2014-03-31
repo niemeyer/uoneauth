@@ -29,7 +29,7 @@ import (
 	"errors"
 	"unsafe"
 
-	"gopkg.in/v0/qml"
+	"gopkg.in/qml.v0"
 	"runtime"
 	"strings"
 	"sync"
@@ -171,13 +171,13 @@ func (s *Service) sendReply(r reply) {
 
 func convertToken(engine *qml.Engine, obj qml.Object) interface{} {
 	// Must copy as the one held by obj may be deallocated once the signal is done.
-	token := &Token{C.tokenCopy(unsafe.Pointer(obj.Property("valueAddr").(uintptr)))}
+	token := &Token{C.tokenCopy(unsafe.Pointer(obj.Property("plainAddr").(uintptr)))}
 	runtime.SetFinalizer(token, (*Token).finalize)
 	return token
 }
 
 func convertErrorResponse(engine *qml.Engine, obj qml.Object) interface{} {
-	cmsg := C.errorResponseString(unsafe.Pointer(obj.Property("valueAddr").(uintptr)))
+	cmsg := C.errorResponseString(unsafe.Pointer(obj.Property("plainAddr").(uintptr)))
 	msg := C.GoString(cmsg)
 	C.free(unsafe.Pointer(cmsg))
 
